@@ -4,9 +4,16 @@
 
 {% block content %}
     <h1>Fai una domanda</h1>
+    <!-- Loop through the conversation history and display it -->
+    {% for entry in conversation_history %}
+    <p><strong>Domanda:</strong> {{ entry.question }}</p>
+    <p><strong>Risposta:</strong> {{ entry.answer }}</p>
+    <hr>
+    {% endfor %}
+    <!-- Form to input a new question -->
     <form action="{{ url_for('submit_query') }}" method="post">
-        <textarea name="question" rows="4" cols="50"></textarea>
-        <input type="submit" value="Invia">
+    <input type="text" name="question" placeholder="Inserisci la tua domanda">
+    <input type="submit" value="Invia">
     </form>
 {% endblock %}
 
