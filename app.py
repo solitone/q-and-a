@@ -44,13 +44,25 @@ def submit_query():
         question = request.form['question']
         
         # Use answer.py script to get the response
-        response = answer.answer_question(answer.df, question=question)
+        response = answer.answer_question(answer.df, question=question, debug=True)
 
         # Append the question and response to the conversation history
         conversation_history.append({'question': question, 'answer': response})
 
     # Render a form to input a question
     return render_template('submit_query.html', conversation_history=conversation_history)
+
+@app.route('/clear_conversation', methods=['POST'])
+def clear_conversation():
+    # Indicate that we want to use the global variable
+    global conversation_history
+    
+    # Logic to clear the conversation history
+    conversation_history = []
+
+    # Redirect back to the conversation page
+    return redirect(url_for('submit_query'))
+
 
 if __name__ == '__main__':
     app.run(debug=True, host="0.0.0.0", port=5555)

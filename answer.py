@@ -79,6 +79,7 @@ def answer_question(
     question="Esiste una caverna chiamata caverna gigante?",
     max_len=1800,
     max_tokens=200,
+    debug=False
 ):
     """
     Answer a question based on the most similar context from the dataframe texts.
@@ -89,6 +90,10 @@ def answer_question(
         max_len=max_len,
     )
 
+    if debug:
+        print(question)
+        print(context)
+        
     try:
         response = openai.ChatCompletion.create(
             model=model,
