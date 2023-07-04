@@ -3,53 +3,70 @@
 {% block title %} Domanda {% endblock %}
 
 {% block content %}
-<div class="col-md-6">
-    
-    <!-- Header with title and clear conversation button -->
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4>Domande e risposte</h4>
-        <!-- Button to clear the conversation history -->
-        <form action="{{ url_for('clear_conversation') }}" method="post">
-            <button type="submit" class="btn btn-danger">Ricomincia</button>
-        </form>
-    </div>
-    
-    <!-- Form to input a new question -->
-    <div class="card mt-3 shadow">
-        <div class="card-body">
-            <form id="question-form" action="{{ url_for('query') }}" method="post" class="d-flex">
-                <input type="text" name="question" placeholder="Inserisci la tua domanda" class="form-control">
-                <button type="submit" class="submit-button" disabled>
-                    <i class="fa fa-arrow-right submit-icon"></i>
-                    <div id="loading-spinner" class="spinner-grow text-dark" role="status" style="display: none">
-                        <span class="visually-hidden">Caricamento...</span>
-                    </div>
-                </button>                
+<div class="row">
+    <div id="q-and-a" class="col-md-5 pe-5">
+        <!-- Header with title and clear conversation button -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>Domande e risposte</h4>
+            <!-- Button to clear the conversation history -->
+            <form action="{{ url_for('clear_conversation') }}" method="post">
+                <button type="submit" class="btn btn-danger">Ricomincia</button>
             </form>
         </div>
-    </div>
 
-    <!-- Loop through the conversation history and display it -->
-    {% for entry in conversation_history %}
-        <div class="d-flex">
-            <div class="card answer-card mt-3 shadow bg-answer"> 
-                <div class="card-body">
-                    <h5>Risposta:</h5>
-                    <p>{{ entry.answer }}</p>
-                </div>
+        <!-- Form to input a new question -->
+        <div class="card mt-3 shadow">
+            <div class="card-body">
+                <form id="question-form" action="{{ url_for('query') }}" method="post" class="d-flex">
+                    <input type="text" name="question" placeholder="Inserisci la tua domanda" class="form-control">
+                    <button type="submit" class="submit-button" disabled>
+                        <i class="fa fa-arrow-right submit-icon"></i>
+                        <div id="loading-spinner" class="spinner-grow text-dark" role="status" style="display: none">
+                            <span class="visually-hidden">Caricamento...</span>
+                        </div>
+                    </button>                
+                </form>
             </div>
         </div>
-        <div class="d-flex">
-            <div class="card question-card mt-3 shadow"> 
-                <div class="card-body">
-                    <h5>Domanda:</h5>
-                    <p>{{ entry.question }}</p>
-                </div>
-            </div>        
-        </div>
-    {% endfor %}
 
-</div>
+        <!-- Loop through the conversation history and display it -->
+        {% for entry in conversation_history %}
+            <div class="d-flex">
+                <div class="card answer-card mt-3 shadow bg-answer"> 
+                    <div class="card-body">
+                        <h5>Risposta:</h5>
+                        <p>{{ entry.answer }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex">
+                <div class="card question-card mt-3 shadow"> 
+                    <div class="card-body">
+                        <h5>Domanda:</h5>
+                        <p>{{ entry.question }}</p>
+                    </div>
+                </div>        
+            </div>
+        {% endfor %}
+    </div> <!-- id="q-and-a" -->
+    <div id="context" class="col-md-7 ps-5">
+        {% for text in context_texts %}
+            {% if loop.first %}
+                <div class="d-flex mb-3">
+                    <h4>Contesto</h4>
+                </div>
+            {% endif %}
+            <div class="card mt-3 shadow">
+                <div class="card-header">
+                    <b>Estratto {{ loop.index }}</b>
+                </div>
+                <div class="card-body">
+                    <p>{{ text }}</p>
+                </div>
+            </div>
+        {% endfor %}
+    </div> <!-- id="context" -->       
+</div> <!-- class="row" -->
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
