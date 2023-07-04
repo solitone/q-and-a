@@ -5,18 +5,12 @@
 
 .question-card {
     text-align: left;
-    float: left; /* Allinea a destra */
+    margin-right: auto; /* spinge la card a sinistra */
 }
 
 .answer-card {
     text-align: left;
-    float: right; /* Allinea a sinistra */
-}
-
-.clearfix::after {
-    content: "";
-    clear: both;
-    display: table;
+    margin-left: auto; /* spinge la card a destra */
 }
 
 /* Stile per il pulsante di invio */
