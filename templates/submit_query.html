@@ -32,7 +32,7 @@
     <!-- Form to input a new question -->
     <div class="card mt-3 shadow">
         <div class="card-body">
-            <form action="{{ url_for('submit_query') }}" method="post" class="d-flex">
+            <form id="question-form" action="{{ url_for('submit_query') }}" method="post" class="d-flex">
                 <input type="text" name="question" placeholder="Inserisci la tua domanda" class="form-control">
                 <button type="submit" class="submit-button" disabled>
                     <i class="fa fa-arrow-right"></i>
@@ -47,8 +47,8 @@
             <button type="submit" class="btn btn-danger">Ricomincia</button>
         </form>
     </div>
-
 </div>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Seleziona l'elemento di input e il pulsante
@@ -75,13 +75,65 @@
         inputElement.addEventListener('input', checkButtonState);
     });
 </script>    
-<!--
+
+<!-- Include jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- Custom script to handle form submission -->
 <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        var inputField = document.querySelector('input[name="question"]');
-        inputField.focus();
-        inputField.scrollIntoView({behavior: "instant", block: "end", inline: "nearest"});
+    $(document).ready(function() {
+        $("#question-form").on("submit", function(event) {
+            event.preventDefault();
+            
+            var question = $('input[name="question"]').val();
+            
+            $.ajax({
+                type: "POST",
+                url: "{{ url_for('submit_query') }}",
+                data: {question: question},
+                dataType: "json",
+                success: function(data) {
+                    var questionCard = `
+                        <div class="card question-card mt-3 shadow">
+                            <div class="card-body">
+                                <h5>Domanda:</h5>
+                                <p>${data.question}</p>
+                            </div>
+                        </div>
+                        <!-- Clear floats -->
+                        <div class="clearfix"></div>`;
+                    
+                    var answerCard = `
+                        <div class="card answer-card mt-3 shadow bg-answer">
+                            <div class="card-body">
+                                <h5>Risposta:</h5>
+                                <p>${data.answer}</p>
+                            </div>
+                        </div>
+                        <!-- Clear floats -->
+                        <div class="clearfix"></div>`;
+                    
+                    // Append new question and answer to the conversation
+                    $(questionCard).insertBefore(".card:last");
+                    $(answerCard).insertBefore(".card:last");
+                    
+                    // Clear the input field
+                    $('input[name="question"]').val('');
+
+                    // Focus the input field
+                    $('input[name="question"]').focus();
+                    
+                    // Disabling the submit button after the response
+                    var submitButton = document.querySelector('.submit-button');
+                    submitButton.classList.remove('active');
+                    submitButton.disabled = true;
+
+                    // Scroll to the bottom of the page
+                    setTimeout(function() {
+                        $('html, body').animate({ scrollTop: $(document).height() }, 'fast');
+                    }, 100);
+                }
+            });
+        });
     });
 </script>
---> 
 {% endblock %}

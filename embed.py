@@ -36,6 +36,15 @@ import openai
 import tiktoken
 import config # set openai.api_key
 
+# Load the cl100k_base tokenizer which is designed to work with the ada-002 model
+tokenizer = tiktoken.get_encoding("cl100k_base")
+
+def get_n_tokens(text):
+    """
+    Return the number of tokens of a given text.
+    """
+    return len(tokenizer.encode(text))
+
 def remove_newlines(serie):
     """
     Remove blank lines from the input series to declutter the text files
@@ -97,7 +106,11 @@ def delayed_embedding(x, engine='text-embedding-ada-002', delay_in_seconds: floa
     # Return embedding 
     return openai.Embedding.create(input=x, engine='text-embedding-ada-002')['data'][0]['embedding']
 
-if __name__ == "__main__":
+def create_embeddings():
+    """
+    Create embeddings for the content in the text files.
+    """
+
     # Create a list to store the text files
     texts=[]
     
@@ -129,8 +142,7 @@ if __name__ == "__main__":
     Record current length of each row 
     to identify which rows need to be split
     """
-    # Load the cl100k_base tokenizer which is designed to work with the ada-002 model
-    tokenizer = tiktoken.get_encoding("cl100k_base")
+
     
     df = pd.read_csv('processed/texts.csv', index_col=0)
     df.columns = ['title', 'text']
@@ -169,4 +181,6 @@ if __name__ == "__main__":
     df['embeddings'] = df.text.apply(delayed_embedding)
     df.to_csv('processed/embeddings.csv')
     #print(df.head()) 
-    
+
+if __name__ == "__main__":
+    create_embeddings()

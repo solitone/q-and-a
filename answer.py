@@ -33,6 +33,7 @@ import pandas as pd
 import numpy as np
 import openai
 from openai.embeddings_utils import distances_from_embeddings
+import embed
 import config # set openai.api_key
 
 # Turn the embeddings into a NumPy array, which will provide more flexibility
@@ -84,6 +85,8 @@ def answer_question(
     """
     Answer a question based on the most similar context from the dataframe texts.
     """
+
+    system_msg = "Rispondi alla domanda basandoti sul contesto sotto. Se non puoi dare una risposta basandoti sul contesto rispondi \"Non so.\"" 
     context = create_context(
         question,
         df,
@@ -91,19 +94,31 @@ def answer_question(
     )
 
     if debug:
-        print(question)
-        print(context)
-        
+        print("System message tokens: " + str(embed.get_n_tokens(system_msg)))
+        print("Context tokens: " + str(embed.get_n_tokens(context)))
+        print("Question tokens: " + str(embed.get_n_tokens(question)))
+
     try:
         response = openai.ChatCompletion.create(
             model=model,
             messages=[
-                {"role": "system", "content": "Rispondi alla domanda basandoti sul contesto sotto. Se non puoi dare una risposta basandoti sul contesto rispondi \"Non so.\""},
+                {"role": "system", "content": system_msg},
                 {"role": "user", "content": f"Contesto: {context}"},
                 {"role": "user", "content": f"Domanda: {question}"}
             ],
             max_tokens=max_tokens,
         )
+
+        if debug:
+            prompt_tokens = response["usage"]["prompt_tokens"]
+            completion_tokens = response["usage"]["completion_tokens"]
+            total_tokens = response["usage"]["total_tokens"]
+            print("Prompt tokens: " + str(prompt_tokens))
+            print("Completion tokens: "+ str(completion_tokens))
+            print("Total tokens: " + str(total_tokens))
+            print("Question: " + question)
+            print("Context: " + context)    
+
         return response["choices"][0]["message"]["content"].strip()
             
     except Exception as e:

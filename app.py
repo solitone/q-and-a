@@ -1,5 +1,6 @@
-from flask import Flask, request, render_template, redirect, url_for
+from flask import Flask, request, render_template, redirect, url_for, flash
 import os
+from flask import jsonify
 import config
 import embed  
 import answer  
@@ -11,28 +12,8 @@ conversation_history = []
 
 @app.route('/')
 def index():
-    return render_template('index.html')  
-
-@app.route('/upload', methods=['GET', 'POST'])
-def upload_file():
-    """
-    Handle file upload and preview if necessary.
-    """
-    pass
-
-@app.route('/delete/<filename>')
-def delete_file(filename):
-    """
-    Handle file deletion.
-    """
-    pass
-
-@app.route('/embed')
-def create_embeddings():
-    """
-    Call functions in embed.py to create embeddings.
-    """
-    pass
+    #return render_template('index.html')  
+    return redirect(url_for('submit_query'))
 
 @app.route('/query', methods=['GET', 'POST'])
 def submit_query():
@@ -42,15 +23,24 @@ def submit_query():
     if request.method == 'POST':
         # When form is submitted, process the query
         question = request.form['question']
-        
+
         # Use answer.py script to get the response
-        response = answer.answer_question(answer.df, question=question, debug=True)
+        response = answer.answer_question(answer.df, question=question, max_len=3300, max_tokens=600, debug=True)
 
         # Append the question and response to the conversation history
-        conversation_history.append({'question': question, 'answer': response})
+        conversation_history.append({'question': question, 'answer': response})      
 
-    # Render a form to input a question
-    return render_template('submit_query.html', conversation_history=conversation_history)
+        # Check if this is an AJAX request
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            # Return JSON response for AJAX
+            return jsonify({'question': question, 'answer': response})
+
+        # Render a form to input a question
+        return render_template('submit_query.html', conversation_history=conversation_history)
+    else:
+        # If it's a GET request, just render the template.
+        return render_template('submit_query.html', conversation_history=conversation_history)
+
 
 @app.route('/clear_conversation', methods=['POST'])
 def clear_conversation():
@@ -63,6 +53,83 @@ def clear_conversation():
     # Redirect back to the conversation page
     return redirect(url_for('submit_query'))
 
+@app.route('/files')
+def list_files():
+    # Ottieni la lista dei file nella cartella 'text'
+    files = os.listdir('text')
+    # Renderizza il template, passando la lista dei file
+    return render_template('file_list.html', file_list=files)
+
+@app.route('/view_file/<filename>')
+def view_file(filename):
+    # Leggi il contenuto del file
+    with open(os.path.join('text', filename), 'r') as file:
+        content = file.read()
+    # Renderizza il template, passando il nome del file e il suo contenuto
+    return render_template('view_file.html', filename=filename, content=content)
+
+@app.route('/delete_file/<filename>', methods=['GET'])
+def delete_file(filename):
+    # Crea il percorso completo del file
+    file_path = os.path.join(config.UPLOAD_FOLDER, filename)
+    
+    # Verifica se il file esiste
+    if os.path.exists(file_path):
+        # Prova a eliminare il file
+        try:
+            os.remove(file_path)
+            # Messaggio di successo (opzionale)
+            flash('File eliminato con successo.', 'success')
+        except:
+            # Messaggio di errore (opzionale)
+            flash('Si è verificato un errore durante l\'eliminazione del file.', 'error')
+    else:
+        # Messaggio di errore (opzionale)
+        flash('File non trovato.', 'error')
+    
+    # Reindirizza l'utente alla pagina della lista dei file
+    return redirect(url_for('list_files'))
+
+@app.route('/upload', methods=['GET', 'POST'])
+def upload_file():
+    if request.method == 'POST':
+        # Controlla se c'è un file come parte della richiesta
+        if 'file' not in request.files:
+            flash('No file part')
+            return redirect(request.url)
+        file = request.files['file']
+
+        # Se l'utente non seleziona un file, il browser potrebbe
+        # inviare una parte di un file senza nome.
+        if file.filename == '':
+            flash('No selected file')
+            return redirect(request.url)
+
+        # Salva il file
+        if file:
+            filename = file.filename
+            file.save(os.path.join(config.UPLOAD_FOLDER, filename))
+            flash('File caricato con successo!', 'success')
+            return redirect(url_for('list_files'))
+
+    # Se il metodo è GET, mostra il form di upload
+    return render_template('upload.html')
+
+@app.route('/create_embeddings', methods=['POST'])
+def create_embeddings():
+    """
+    Call a function in embed.py to create embeddings.
+    """    
+    try:
+        # Lancia la funzione per creare gli embedding
+        embed.create_embeddings()
+        # Ritorna un successo
+        return jsonify({'status': 'success'}), 200
+    except Exception as e:
+        # In caso di errore ritorna un messaggio di errore
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 if __name__ == '__main__':
+    # Configura la chiave segreta per i messaggi flash
+    app.secret_key = config.app_key
     app.run(debug=True, host="0.0.0.0", port=5555)
