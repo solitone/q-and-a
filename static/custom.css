@@ -4,15 +4,13 @@
 }
 
 .question-card {
-    display: inline-block;
     text-align: left;
-    float: right; /* Allinea a destra */
+    float: left; /* Allinea a destra */
 }
 
 .answer-card {
-    display: inline-block;
     text-align: left;
-    float: left; /* Allinea a sinistra */
+    float: right; /* Allinea a sinistra */
 }
 
 .clearfix::after {

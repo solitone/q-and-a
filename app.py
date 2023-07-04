@@ -13,10 +13,10 @@ conversation_history = []
 @app.route('/')
 def index():
     #return render_template('index.html')  
-    return redirect(url_for('submit_query'))
+    return redirect(url_for('query'))
 
 @app.route('/query', methods=['GET', 'POST'])
-def submit_query():
+def query():
     """
     Allow users to input a query and display the response.
     """
@@ -27,31 +27,18 @@ def submit_query():
         # Use answer.py script to get the response
         response = answer.answer_question(answer.df, question=question, max_len=3300, max_tokens=600, debug=True)
 
-        # Append the question and response to the conversation history
-        conversation_history.append({'question': question, 'answer': response})      
+        # Prepend the question and response to the conversation history to display it at the top
+        conversation_history.insert(0, {'question': question, 'answer': response})
 
-        # Check if this is an AJAX request
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            # Return JSON response for AJAX
-            return jsonify({'question': question, 'answer': response})
-
-        # Render a form to input a question
-        return render_template('submit_query.html', conversation_history=conversation_history)
-    else:
-        # If it's a GET request, just render the template.
-        return render_template('submit_query.html', conversation_history=conversation_history)
-
+    return render_template('query.html', conversation_history=conversation_history)
 
 @app.route('/clear_conversation', methods=['POST'])
 def clear_conversation():
-    # Indicate that we want to use the global variable
-    global conversation_history
-    
-    # Logic to clear the conversation history
-    conversation_history = []
+    # Clear the conversation history
+    conversation_history.clear()
 
     # Redirect back to the conversation page
-    return redirect(url_for('submit_query'))
+    return redirect(url_for('query'))
 
 @app.route('/files')
 def list_files():
