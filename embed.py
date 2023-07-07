@@ -35,6 +35,7 @@ import time
 import openai
 import tiktoken
 import config # set openai.api_key
+from textutils import clean_text, split_into_sentences
 
 # Load the cl100k_base tokenizer which is designed to work with the ada-002 model
 tokenizer = tiktoken.get_encoding("cl100k_base")
@@ -45,25 +46,13 @@ def get_n_tokens(text):
     """
     return len(tokenizer.encode(text))
 
-def remove_newlines(serie):
-    """
-    Remove blank lines from the input series to declutter the text files
-    and make them easier to process.
-    """
-    serie = serie.str.replace('\n', ' ')
-    serie = serie.str.replace('\\n', ' ')
-    serie = serie.str.replace('  ', ' ')
-    serie = serie.str.replace('  ', ' ')
-    return serie
-
-
 def split_into_many(text, max_tokens = config.MAX_TOKENS):
     """
     Split the text into chunks of a maximum number of tokens.
     """
 
     # Split the text into sentences
-    sentences = text.split('. ')
+    sentences = split_into_sentences(text)
 
     # Get the number of tokens for each sentence
     n_tokens = [len(tokenizer.encode(" " + sentence)) for sentence in sentences]
@@ -120,17 +109,14 @@ def create_embeddings():
         # Open the file and read the text
         with open(config.UPLOAD_FOLDER + file, "r", encoding="UTF-8") as f:
             text = f.read()
-    
+            cleansed_text = clean_text(text)
+
             # Add a tuple (file name, file text conent) to 'texts' list.
             #  - and _ in text file name are replaced with spaces.
-            texts.append((file.replace('-',' ').replace('_', ' '), text))
+            texts.append((file.replace('-',' ').replace('_', ' '), cleansed_text))
     
     # Create a dataframe from the list of texts
     df = pd.DataFrame(texts, columns = ['filename', 'text'])
-    
-    # Set the text column to be the file name plus 
-    # the raw text with the newlines removed
-    df['text'] = df.filename + ". " + remove_newlines(df.text)
     
     # Create a directory to store the csv files
     if not os.path.exists("processed"):

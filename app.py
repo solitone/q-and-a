@@ -26,11 +26,7 @@ def query():
         question = request.form['question']
 
         # Use answer.py script to get the response
-        response = answer.answer_question(answer.df, question=question, max_len=3300, max_tokens=600, debug=True)
-
-        context_texts.append("Esempio di testo 1")
-        context_texts.append("Esempio di testo 2")
-        context_texts.append("Esempio di testo 3")
+        response, context_texts = answer.answer_question(answer.df, question=question, max_len=3300, max_tokens=600, debug=True)
 
         # Prepend the question and response to the conversation history to display it at the top
         conversation_history.insert(0, {'question': question, 'answer': response})

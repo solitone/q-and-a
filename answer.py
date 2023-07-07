@@ -41,92 +41,108 @@ df=pd.read_csv('processed/embeddings.csv', index_col=0)
 df['embeddings'] = df['embeddings'].apply(eval).apply(np.array)
 #print(df.head())
 
-def create_context(
-    question, df, max_len=1800
-):
+def get_context_texts(question, df, max_len=1800):
     """
-    Create a context for a question by finding the most similar context from the dataframe.
+    Given a question, return the most similar context texts from the dataframe along with
+    their distances from the question.
+    
+    :param question: The input question as a string.
+    :param df: The DataFrame containing the texts and their embeddings.
+    :param max_len: The maximum length of the combined context texts.
+    :return: A list of tuples where each tuple contains a context text and its distance from the question.
     """
 
-    # Get the embeddings for the question
-    q_embeddings = openai.Embedding.create(input=question, engine='text-embedding-ada-002')['data'][0]['embedding']
+    # Step 1: Compute embeddings for the input question
+    q_embeddings = openai.Embedding.create(
+        input=question, engine='text-embedding-ada-002')['data'][0]['embedding']
 
-    # Get the distances from the embeddings
-    df['distances'] = distances_from_embeddings(q_embeddings, df['embeddings'].values, distance_metric='cosine')
+    # Step 2: Compute the distances between question embeddings and context text embeddings
+    df['distances'] = distances_from_embeddings(
+        q_embeddings, df['embeddings'].values, distance_metric='cosine')
 
+    # Step 3: Initialize an empty list to store the selected context texts and their distances
+    context_texts_with_distances = []
+    current_length = 0
 
-    returns = []
-    cur_len = 0
+    # Step 4: Iterate over the texts sorted by their distances in ascending order
+    for index, row in df.sort_values('distances', ascending=True).iterrows():
 
-    # Sort by distance and add the text to the context until the context is too long
-    for i, row in df.sort_values('distances', ascending=True).iterrows():
-        
-        # Add the length of the text to the current length
-        cur_len += row['n_tokens'] + 4
-        
-        # If the context is too long, break
-        if cur_len > max_len:
+        # Update the current length including a buffer for extra characters
+        current_length += row['n_tokens'] + 4
+
+        # If adding the next text exceeds the maximum length, stop adding texts
+        if current_length > max_len:
             break
-        
-        # Else add it to the text that is being returned
-        returns.append(row["text"])
 
-    # Return the context
-    return "\n\n###\n\n".join(returns)
+        # Add the text and its distance to the list
+        text = row["text"]
+        distance = row["distances"]
+        context_texts_with_distances.append((text, distance))
 
-def answer_question(
-    df,
-    model="gpt-3.5-turbo",
-    question="Esiste una caverna chiamata caverna gigante?",
-    max_len=1800,
-    max_tokens=200,
-    debug=False
-):
+    # Return the list of context texts along with their distances
+    return context_texts_with_distances
+
+def answer_question(df, model="gpt-3.5-turbo", question="Esiste una caverna chiamata caverna gigante?", max_len=1800, max_tokens=200, debug=False):
     """
     Answer a question based on the most similar context from the dataframe texts.
+    
+    :param df: The DataFrame containing the embeddings and text.
+    :param model: The language model to be used.
+    :param question: The input question as a string.
+    :param max_len: The maximum length of the combined context texts.
+    :param max_tokens: The maximum number of tokens for the language model response.
+    :param debug: Boolean to control debug prints.
+    :return: The answer string and context texts with their distances.
     """
 
-    system_msg = "Rispondi alla domanda basandoti sul contesto sotto. Se non puoi dare una risposta basandoti sul contesto rispondi \"Non so.\"" 
-    context = create_context(
-        question,
-        df,
-        max_len=max_len,
-    )
+    # Step 1: Define system message instructing the model how to behave
+    system_msg = "Rispondi alla domanda basandoti sul contesto sotto. Usa un linguaggio adatto a un ragazzino di 14 anni. Se non puoi dare una risposta basandoti sul contesto rispondi \"Non so.\""
+    
+    # Step 2: Get the context texts related to the input question
+    context_texts_with_distances = get_context_texts(question, df, max_len=max_len)
+    # Extract only the texts from the (text, distance) tuples for context
+    context_texts = "\n\n###\n\n".join([text_and_dist[0] for text_and_dist in context_texts_with_distances])
 
+    # Step 3 (Optional): Debug prints for token counts
     if debug:
         print("System message tokens: " + str(embed.get_n_tokens(system_msg)))
-        print("Context tokens: " + str(embed.get_n_tokens(context)))
+        print("Context tokens: " + str(embed.get_n_tokens(context_texts)))
         print("Question tokens: " + str(embed.get_n_tokens(question)))
 
+    # Step 4: Generate the answer using the OpenAI API
     try:
+        # Make a request to OpenAI API with the context and question
         response = openai.ChatCompletion.create(
             model=model,
             messages=[
                 {"role": "system", "content": system_msg},
-                {"role": "user", "content": f"Contesto: {context}"},
+                {"role": "user", "content": f"Contesto: {context_texts}"},
                 {"role": "user", "content": f"Domanda: {question}"}
             ],
             max_tokens=max_tokens,
         )
 
-        if debug:
-            prompt_tokens = response["usage"]["prompt_tokens"]
-            completion_tokens = response["usage"]["completion_tokens"]
-            total_tokens = response["usage"]["total_tokens"]
-            print("Prompt tokens: " + str(prompt_tokens))
-            print("Completion tokens: "+ str(completion_tokens))
-            print("Total tokens: " + str(total_tokens))
-            print("Question: " + question)
-            print("Context: " + context)    
+        # Extract the answer from the API response
+        answer = response["choices"][0]["message"]["content"].strip()
 
-        return response["choices"][0]["message"]["content"].strip()
-            
+        # Step 5 (Optional): Debug prints for response details
+        if debug:
+            print("Prompt tokens: " + str(response["usage"]["prompt_tokens"]))
+            print("Completion tokens: " + str(response["usage"]["completion_tokens"]))
+            print("Total tokens: " + str(response["usage"]["total_tokens"]))
+            print("Question: " + question)
+            print("Context: " + context_texts)
+
+        # Return the answer along with context_texts_with_distances
+        return answer, context_texts_with_distances
+
     except Exception as e:
+        # Handle exceptions and print error message
         print(e)
-        return "" 
+        return ""
 
 if __name__ == "__main__":
     question="Che caratteristiche hanno le caverne che si aprono nella parete del Seguret?"
     print(question)
-    answer = answer_question(df, question=question)
+    answer, context_texts_with_dists = answer_question(df, question=question)
     print(answer)

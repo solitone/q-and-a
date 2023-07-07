@@ -6,7 +6,7 @@ import openai
 UPLOAD_FOLDER = 'text/'
 
 # Maximum number of tokens of each text chunk that gets embedded
-MAX_TOKENS = 1000 
+MAX_TOKENS = 500 
 
 # Load environment variables from .env file
 load_dotenv()
