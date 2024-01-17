@@ -32,7 +32,6 @@ SOFTWARE.
 import pandas as pd
 import numpy as np
 import os
-import time
 from datetime import datetime
 import openai
 from openai.embeddings_utils import distances_from_embeddings
@@ -64,7 +63,8 @@ def get_context_texts(question, df, max_len=1800):
 
     # Step 1: Compute embeddings for the input question
     q_embeddings = openai.Embedding.create(
-        input=question, engine='text-embedding-ada-002')['data'][0]['embedding']
+            input=question, engine='text-embedding-ada-002'
+        )['data'][0]['embedding']
 
     # Step 2: Compute the distances between question embeddings and context text embeddings
     df['distances'] = distances_from_embeddings(
@@ -92,7 +92,7 @@ def get_context_texts(question, df, max_len=1800):
     # Return the list of context texts along with their distances
     return context_texts_with_distances
 
-def answer_question(df, model="gpt-3.5-turbo", question="Esiste una caverna chiamata caverna gigante?", max_len=1800, max_tokens=200, debug=False):
+def answer_question(df, model="gpt-3.5-turbo", question="Di cosa parla il testo?", max_len=1800, max_tokens=200, debug=False):
     """
     Answer a question based on the most similar context from the dataframe texts.
     
@@ -106,7 +106,7 @@ def answer_question(df, model="gpt-3.5-turbo", question="Esiste una caverna chia
     """
 
     # Step 1: Define system message instructing the model how to behave
-    system_msg = "Rispondi alla domanda basandoti sul contesto sotto. Usa un linguaggio adatto a un ragazzino di 14 anni. Se non puoi dare una risposta basandoti sul contesto rispondi \"Non so.\""
+    system_msg = "Rispondi alla domanda basandoti UNICAMENTE sul contesto sotto. Usa un linguaggio semplice e chiaro. Se non puoi dare una risposta basandoti sul contesto, rispondi \"Non so.\", NON usare la tua conoscenza personale."
     
     # Step 2: Get the context texts related to the input question
     context_texts_with_distances = get_context_texts(question, df, max_len=max_len)
@@ -153,12 +153,15 @@ def answer_question(df, model="gpt-3.5-turbo", question="Esiste una caverna chia
 
 def summarize_text(text, model="gpt-3.5-turbo", max_tokens=1000, debug=False):
     system_msg = (
-                  'Scrivi un conciso riassunto del testo riportato qui sotto. '
-                  'Non parlare in prima persona. '
+                'Fai un breve riassunto del testo riportato qui sotto. NON parlare in prima persona. '
+                'Limitati a spiegare quello che si dice nel testo, '
+                'evitando formule del tipo "nel testo si dice" oppure "questo testo parla". '
+                'Usa un linguaggio chiaro, semplice e accattivante, come fosse un blog, '
+                'in modo da suscitare l\'interesse del lettore.'
                 )
     
     cleansed_text = clean_text(text)
-    chunks = embed.split_into_many(cleansed_text, 1000)
+    chunks = embed.split_into_many(text=cleansed_text, max_tokens=1000)
     
     summaries = []
     num_chunks = len(chunks)
@@ -230,16 +233,14 @@ def summarize_text(text, model="gpt-3.5-turbo", max_tokens=1000, debug=False):
 
 def summarize(df, model="gpt-3.5-turbo", max_tokens=1000, debug=False):
     # Define system message instructing the model how to behave
-    system_msg = ('Fai un breve riassunto del testo riportato qui sotto. Non parlare in prima persona. Per esempio, scrivi: '
-                '"Gli autori dello studio potrebbero non essere riusciti a esplorare tutte le zone con fenomeni carsici", '
-                'invece di: "Potrebbe esserci il rischio che non abbiamo esplorato tutte le zone con fenomeni carsici". '
+    system_msg = (
+                'Fai un breve riassunto del testo riportato qui sotto. NON parlare in prima persona. '
                 'Limitati a spiegare quello che si dice nel testo, '
                 'evitando formule del tipo "nel testo si dice" oppure "questo testo parla". '
-                'Per esempio, scrivi: "Nelle montagne tra la Stura di Cuneo e la Maira sono presenti '
-                'fenomeni carsici (cioè legati alla formazione di grotte e cavità)", invece di: '
-                '"Questo testo parla dei fenomeni carsici (cioè legati alla formazione di grotte e cavità) '
-                'presenti nelle montagne tra la Stura di Cuneo e la Maira." '
-                'Usa un linguaggio adatto a un ragazzino di 14 anni.')
+                'Usa un linguaggio chiaro, semplice e accattivante, come fosse un blog, '
+                'in modo da suscitare l\'interesse del lettore.'
+                )
+    
     summaries = []
 
     # Numero di righe del dataframe
@@ -303,32 +304,8 @@ def chat_completion_with_backoff(**kwargs):
 
 
 if __name__ == "__main__":
-    # question="Che caratteristiche hanno le caverne che si aprono nella parete del Seguret?"
-    # print(question)
-    # answer, context_texts_with_dists = answer_question(df, question=question)
-    # print(answer)
-
-    # try:
-    #     result = summarize(df=df, debug=True)
-    #     if result["success"]:
-    #         # Ensure the text directory exists
-    #         if not os.path.exists('processed'):
-    #             os.makedirs('processed')
-        
-    #         # Write summaries to a file
-    #         with open('processed/summary.txt', 'w') as file:
-    #             for summary in result["summaries"]:
-    #                 file.write(summary + "\n")
-    #     else:
-    #         print(f"Errore: {result['error']}")
-        
-    # except Exception as e:
-    #     # Return an error response
-    #     print(f"Exception: {type(e).__module__}.{type(e).__name__}: {str(e)}")
-
-
     try:
-        with open('text/fenomeno_carsico.txt', 'r') as file:
+        with open('processed/summary.txt', 'r') as file:
             text = file.read()
 
         result = summarize_text(text, debug=True)

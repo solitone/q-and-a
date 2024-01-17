@@ -15,7 +15,7 @@ def index():
     summaries = []
 
     # Open summary file
-    with open('processed/summary.txt', 'r') as file:
+    with open('processed/summary_recursive.txt', 'r') as file:
         lines = file.readlines()  # leggi tutte le linee del file
         #text = file.read()
 
@@ -44,6 +44,15 @@ def summarize():
             with open('processed/summary.txt', 'w') as file:
                 for summary in result["summaries"]:
                     file.write(summary + "\n")
+
+            # Join the summaries into a single string
+            summary = "\n".join(result["summaries"])
+            result = answer.summarize_text(summary, debug=True)
+            if result["success"]:
+                # Write summaries to a second file
+                with open('processed/summary_recursive.txt', 'w') as file:
+                    for summary in result["summaries"]:
+                        file.write(summary + "\n")
         
             # Return a success response
             return jsonify({"success": True, "message": "Riassunti scritti con successo."}), 200
