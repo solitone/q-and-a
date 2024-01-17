@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+
+{% block title %} Visualizza File {% endblock %}
+
+{% block content %}
+    <h4>{{ filename }}</h4>
+    <pre>{{ content }}</pre>
+    <a href="{{ url_for('list_files') }}">Torna alla lista dei file</a>
+{% endblock %}

@@ -1,0 +1,28 @@
+/* custom.css */
+.bg-answer {
+    background-color: #f2fafe; /* Colore azzurro chiaro chiaro */
+}
+
+.question-card {
+    text-align: left;
+    margin-right: auto; /* spinge la card a sinistra */
+}
+
+.answer-card {
+    text-align: left;
+    margin-left: auto; /* spinge la card a destra */
+}
+
+/* Stile per il pulsante di invio */
+.submit-button {
+    border: none;
+    background-color: transparent;
+    font-size: 1.5em;
+    cursor: not-allowed; /* disabilita il puntatore del mouse quando il pulsante è inattivo */
+    color: #cccccc; /* colore grigio per lo stato inattivo */
+}
+
+.submit-button.active {
+    cursor: pointer;
+    color: #007bff; /* colore blu (o un altro colore a tua scelta) per lo stato attivo */
+}

@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block title %} Domanda {% endblock %}
+
+{% block content %}
+<div class="row">
+    <div id="q-and-a" class="col-md-5 pe-5">
+        <!-- Header with title and clear conversation button -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4>Domande e risposte</h4>
+            <!-- Button to clear the conversation history -->
+            <form action="{{ url_for('clear_conversation') }}" method="post">
+                <button type="submit" class="btn btn-danger">Ricomincia</button>
+            </form>
+        </div>
+
+        <!-- Form to input a new question -->
+        <div class="card mt-3 shadow">
+            <div class="card-body">
+                <form id="question-form" action="{{ url_for('query') }}" method="post" class="d-flex">
+                    <input type="text" name="question" placeholder="Inserisci la tua domanda" class="form-control">
+                    <button type="submit" class="submit-button" disabled>
+                        <i class="fa fa-arrow-right submit-icon"></i>
+                        <div id="loading-spinner" class="spinner-grow text-dark" role="status" style="display: none">
+                            <span class="visually-hidden">Caricamento...</span>
+                        </div>
+                    </button>                
+                </form>
+            </div>
+        </div>
+
+        <!-- Loop through the conversation history and display it -->
+        {% for entry in conversation_history %}
+            <div class="d-flex">
+                <div class="card answer-card mt-3 shadow bg-answer"> 
+                    <div class="card-body">
+                        <h5>Risposta:</h5>
+                        <p>{{ entry.answer }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex">
+                <div class="card question-card mt-3 shadow"> 
+                    <div class="card-body">
+                        <h5>Domanda:</h5>
+                        <p>{{ entry.question }}</p>
+                    </div>
+                </div>        
+            </div>
+        {% endfor %}
+    </div> <!-- id="q-and-a" -->
+    <div id="context" class="col-md-7 ps-5">
+        {% for text in context_texts %}
+            {% if loop.first %}
+                <div class="d-flex mb-3">
+                    <h4>Contesto</h4>
+                </div>
+            {% endif %}
+            <div class="card mt-3 shadow">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <b>Estratto {{ loop.index }}</b>
+                    <small>pertinenza: {{ "{:.2f}".format((1 - text[1]) * 100) }}%</small>
+                </div>
+                <div class="card-body">
+                    <p>{{ text[0] }}</p>
+                </div>
+            </div>            
+        {% endfor %}
+    </div> <!-- id="context" -->       
+</div> <!-- class="row" -->
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Seleziona l'elemento di input e il pulsante
+        var inputElement = document.querySelector('input[name="question"]');
+        var submitButton = document.querySelector('.submit-button');
+    
+        // Funzione di controllo dello stato del pulsante
+        function checkButtonState() {
+            if (inputElement.value.trim() !== '') {
+                // Attiva il pulsante se la casella di testo contiene del testo
+                submitButton.classList.add('active');
+                submitButton.disabled = false; // Abilita il pulsante
+            } else {
+                // Disattiva il pulsante se la casella di testo è vuota
+                submitButton.classList.remove('active');
+                submitButton.disabled = true; // Disabilita il pulsante
+            }
+        }
+
+        // Controlla lo stato del pulsante quando la pagina viene caricata
+        checkButtonState();
+    
+        // Aggiungi un listener per l'evento 'input' per controllare lo stato del pulsante ogni volta che il contenuto dell'input cambia
+        inputElement.addEventListener('input', checkButtonState);
+    });
+
+    document.getElementById('question-form').addEventListener('submit', function() {
+        var submitButton = document.querySelector('.submit-button');
+        var submitIcon = document.querySelector('.submit-icon');
+        var loadingSpinner = document.getElementById('loading-spinner');
+
+        // Disabilita il pulsante di invio per evitare invii multipli
+        submitButton.disabled = true;
+        // Togli la classe 'active' in modo che passando sopra il pulsante venga mostra l'icona di un divieto
+        submitButton.classList.remove('active'); 
+
+        // Nascondi l'icona del pulsante di invio
+        submitIcon.style.display = 'none';
+        
+        // Mostra l'indicatore di caricamento
+        var loadingSpinner = document.getElementById('loading-spinner');
+        loadingSpinner.style.display = 'block';
+    });
+</script>    
+{% endblock %}

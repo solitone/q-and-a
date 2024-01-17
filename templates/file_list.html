@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %} Lista dei file {% endblock %}
+
+{% block content %}
+    <!-- Display flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="d-flex justify-content-between align-items-center">
+        <h4>File presenti</h4>
+        <div class="d-flex align-items-center">
+            <a href="{{ url_for('upload_file') }}" class="btn btn-success me-2">Carica nuovo file</a>
+            <button id="create-embeddings" class="btn btn-info me-2">Crea embedding</button>
+            <span id="embeddings-status" style="font-weight: bold; color: #337ab7;"></span><span id="loading-dots" style="font-weight: bold; color: #337ab7; display: inline-block; width: 3ch;"></span>
+            <!-- Aggiunto pulsante Riassumi -->
+            <button id="create-summary" class="btn btn-warning me-2">Riassumi</button>
+            <span id="summary-status" style="font-weight: bold; color: #ffc107;"></span><span id="summary-spinner" class="spinner-border spinner-border-sm" role="status" style="display: none;"></span>
+        </div>
+    </div>    
+
+    <table class="table table-hover mt-3">
+        <thead>
+            <tr>
+                <th scope="col">#</th>
+                <th scope="col">Nome del file</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set counter = 0 %}
+            {% for filename in file_list %}
+                {% set counter = counter + 1 %}
+                <tr>
+                    <th scope="row">{{ counter }}</th>
+                    <td>{{ filename }}</td>
+                    <td><a href="{{ url_for('view_file', filename=filename) }}" class="btn btn-primary">Visualizza</a></td>
+                    <td><a href="{{ url_for('delete_file', filename=filename) }}" class="btn btn-danger" onclick="return confirm('Sei sicuro di voler eliminare questo file?');">Elimina</a></td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $("#create-embeddings").click(function() {
+                // Setta il colore del messaggio a blu durante la creazione
+                $("#embeddings-status").css("color", "#337ab7");
+                // Mostra un messaggio che indica che l'attività è in corso
+                $("#embeddings-status").text("Creazione degli embeddings in corso");
+    
+                // Avvia l'animazione dei puntini
+                var dotCount = 0;
+                var loadingDotsInterval = setInterval(function() {
+                    dotCount = (dotCount + 1) % 4;
+                    var dots = '.'.repeat(dotCount) + '   '.substring(dotCount);
+                    $("#loading-dots").text(dots);
+                }, 500);
+        
+                // Fai una chiamata AJAX all'endpoint Flask
+                $.ajax({
+                    url: "{{ url_for('create_embeddings') }}",
+                    type: "POST",
+                    success: function(response) {
+                        // Ferma l'animazione dei puntini
+                        clearInterval(loadingDotsInterval);
+                        // Rimuovi i puntini
+                        $("#loading-dots").text("");
+                        // Setta il colore del messaggio a verde
+                        $("#embeddings-status").css("color", "#28a745");
+                        // Mostra un messaggio di successo quando l'operazione è completa
+                        $("#embeddings-status").text("Embeddings creati con successo.");
+                    },
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        // Ferma l'animazione dei puntini
+                        clearInterval(loadingDotsInterval);
+                        // Rimuovi i puntini
+                        $("#loading-dots").text("");
+                        // Setta il colore del messaggio a rosso
+                        $("#embeddings-status").css("color", "#dc3545");
+                        // Mostra un messaggio di errore in caso di fallimento
+                        var errorMessage = jqXHR.responseJSON ? jqXHR.responseJSON.message : "Errore sconosciuto";
+                        $("#embeddings-status").text("Errore nella creazione degli embeddings: " + errorMessage);
+                    }
+                });
+            });
+            // Aggiunto gestore click per pulsante Riassumi
+            $("#create-summary").click(function() {
+                // Mostra lo spinner
+                $("#summary-spinner").css("display", "inline-block");
+                // Mostra un messaggio che indica che l'attività è in corso
+                $("#summary-status").text("Creazione del riassunto in corso...");
+
+                // Fai una chiamata AJAX all'endpoint Flask
+                $.ajax({
+                    url: "{{ url_for('summarize') }}",
+                    type: "POST",
+                    dataType: "json",
+                    success: function(response) {
+                        // Nascondi lo spinner
+                        $("#summary-spinner").css("display", "none");
+                    
+                        if (response.success) {
+                            // Setta il colore del messaggio a verde
+                            $("#summary-status").css("color", "#28a745");
+                            // Mostra un messaggio di successo utilizzando la risposta dal server
+                            $("#summary-status").text(response.message);
+                        } else {
+                            // Setta il colore del messaggio a rosso
+                            $("#summary-status").css("color", "#dc3545");
+                            // Mostra un messaggio di errore utilizzando la risposta dal server
+                            $("#summary-status").text("Errore nella creazione del riassunto: " + response.error);
+                        }
+                    },
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        // Nascondi lo spinner
+                        $("#summary-spinner").css("display", "none");
+                        // Setta il colore del messaggio a rosso
+                        $("#summary-status").css("color", "#dc3545");
+                    
+                        // Mostra un messaggio di errore in caso di fallimento
+                        var errorMessage = (jqXHR.responseJSON && jqXHR.responseJSON.message) ? jqXHR.responseJSON.message : "Errore sconosciuto";
+                        $("#summary-status").text("Errore nella creazione del riassunto: " + errorMessage);
+                    }
+                });
+            });         
+        });
+    </script>    
+{% endblock %}
