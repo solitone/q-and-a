@@ -31,7 +31,6 @@ SOFTWARE.
 """
 import os
 import pandas as pd
-import time
 from datetime import datetime
 import openai
 import tiktoken
@@ -69,26 +68,28 @@ def split_into_many(text, max_tokens=config.MAX_TOKENS, debug=False):
     chunk = []
 
     # Loop through the sentences and tokens joined together in a tuple
-    for sentence, token in zip(sentences, n_tokens):
+    for sentence, tokens in zip(sentences, n_tokens):
 
         # If the number of tokens so far plus the number of tokens in the
         # current sentence is greater than the max number of tokens, then 
         # add the chunk to the list of chunks and reset the chunk 
         # and tokens so far
-        if tokens_so_far + token > max_tokens:
+        if tokens_so_far + tokens > max_tokens:
             chunks.append(". ".join(chunk) + ".")
             chunk = []
             tokens_so_far = 0
 
         # If the number of tokens in the current sentence is greater than 
         # the max number of tokens, go to the next sentence
-        if token > max_tokens:
+        if tokens > max_tokens:
+            print("😨 This should never happen.")
+            print(f"Skipping sentence with {tokens} tokens: {sentence}")
             continue
 
         # Otherwise, add the sentence to the chunk and add the number of 
         # tokens to the total
         chunk.append(sentence)
-        tokens_so_far += token + 1
+        tokens_so_far += tokens
 
     if debug:
         # Ensure the logs directory exists
@@ -189,9 +190,9 @@ def create_embeddings():
         
         # Otherwise, add the text to the list of shortened texts
         else:
-            shortened.append( row[1]['text'] )
+            shortened.append(row[1]['text'])
     
-    df = pd.DataFrame(shortened, columns = ['text'])
+    df = pd.DataFrame(shortened, columns=['text'])
     df['n_tokens'] = df.text.apply(lambda x: len(tokenizer.encode(x)))
     #print(df.head()) 
     
