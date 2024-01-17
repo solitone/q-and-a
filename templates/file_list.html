@@ -18,10 +18,13 @@
         <h4>File presenti</h4>
         <div class="d-flex align-items-center">
             <a href="{{ url_for('upload_file') }}" class="btn btn-success me-2">Carica nuovo file</a>
-            <button id="create-embeddings" class="btn btn-info me-2">Crea embeddings</button>
+            <button id="create-embeddings" class="btn btn-info me-2">Crea embedding</button>
             <span id="embeddings-status" style="font-weight: bold; color: #337ab7;"></span><span id="loading-dots" style="font-weight: bold; color: #337ab7; display: inline-block; width: 3ch;"></span>
+            <!-- Aggiunto pulsante Riassumi -->
+            <button id="create-summary" class="btn btn-warning me-2">Riassumi</button>
+            <span id="summary-status" style="font-weight: bold; color: #ffc107;"></span><span id="summary-spinner" class="spinner-border spinner-border-sm" role="status" style="display: none;"></span>
         </div>
-    </div>
+    </div>    
 
     <table class="table table-hover mt-3">
         <thead>
@@ -88,6 +91,46 @@
                     }
                 });
             });
+            // Aggiunto gestore click per pulsante Riassumi
+            $("#create-summary").click(function() {
+                // Mostra lo spinner
+                $("#summary-spinner").css("display", "inline-block");
+                // Mostra un messaggio che indica che l'attività è in corso
+                $("#summary-status").text("Creazione del riassunto in corso...");
+
+                // Fai una chiamata AJAX all'endpoint Flask
+                $.ajax({
+                    url: "{{ url_for('summarize') }}",
+                    type: "POST",
+                    dataType: "json",
+                    success: function(response) {
+                        // Nascondi lo spinner
+                        $("#summary-spinner").css("display", "none");
+                    
+                        if (response.success) {
+                            // Setta il colore del messaggio a verde
+                            $("#summary-status").css("color", "#28a745");
+                            // Mostra un messaggio di successo utilizzando la risposta dal server
+                            $("#summary-status").text(response.message);
+                        } else {
+                            // Setta il colore del messaggio a rosso
+                            $("#summary-status").css("color", "#dc3545");
+                            // Mostra un messaggio di errore utilizzando la risposta dal server
+                            $("#summary-status").text("Errore nella creazione del riassunto: " + response.error);
+                        }
+                    },
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        // Nascondi lo spinner
+                        $("#summary-spinner").css("display", "none");
+                        // Setta il colore del messaggio a rosso
+                        $("#summary-status").css("color", "#dc3545");
+                    
+                        // Mostra un messaggio di errore in caso di fallimento
+                        var errorMessage = (jqXHR.responseJSON && jqXHR.responseJSON.message) ? jqXHR.responseJSON.message : "Errore sconosciuto";
+                        $("#summary-status").text("Errore nella creazione del riassunto: " + errorMessage);
+                    }
+                });
+            });         
         });
     </script>    
 {% endblock %}

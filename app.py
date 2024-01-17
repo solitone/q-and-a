@@ -12,8 +12,46 @@ conversation_history = []
 
 @app.route('/')
 def index():
-    #return render_template('index.html')  
-    return redirect(url_for('query'))
+    summaries = []
+
+    # Open summary file
+    with open('processed/summary.txt', 'r') as file:
+        lines = file.readlines()  # leggi tutte le linee del file
+        #text = file.read()
+
+    # result = answer.summarize_text(text, debug=False)
+    # if result["success"]:
+    #     lines = result["summaries"]
+
+    for line in lines:
+        line = line.strip()  # rimuovi gli spazi bianchi (inclusi i ritorni a capo) all'inizio e alla fine della stringa
+        if line:  # se la linea non è vuota
+            summaries.append(line)  # aggiungila alla lista   
+    
+    return render_template('index.html', paragraphs=summaries)
+
+@app.route('/summarize', methods=['POST'])
+def summarize():
+    try:
+        # Use answer.py script to get a summary of the text
+        result = answer.summarize(answer.df, debug=True)
+        if result["success"]:
+            # Ensure the text directory exists
+            if not os.path.exists('processed'):
+                os.makedirs('processed')
+        
+            # Write summaries to a file
+            with open('processed/summary.txt', 'w') as file:
+                for summary in result["summaries"]:
+                    file.write(summary + "\n")
+        
+            # Return a success response
+            return jsonify({"success": True, "message": "Riassunti scritti con successo."}), 200
+        else:
+            return jsonify({"success": False, "error": result["error"]}), 500
+    except Exception as e:
+        # Return an error response
+        return jsonify({"success": False, "message": str(e)}), 500
 
 @app.route('/query', methods=['GET', 'POST'])
 def query():

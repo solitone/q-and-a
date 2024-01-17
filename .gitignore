@@ -162,4 +162,7 @@ cython_debug/
 processed/embeddings.csv
 processed/texts.csv
 .gitignore
-text/fenomeno_carsico.txt
+text/*
+processed/*
+logs/*
+.DS_Store

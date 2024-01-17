@@ -32,8 +32,15 @@ SOFTWARE.
 import os
 import pandas as pd
 import time
+from datetime import datetime
 import openai
 import tiktoken
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_random_exponential,
+    retry_if_exception_type
+)  # for exponential backoff
 import config # set openai.api_key
 from textutils import clean_text, split_into_sentences
 
@@ -46,7 +53,7 @@ def get_n_tokens(text):
     """
     return len(tokenizer.encode(text))
 
-def split_into_many(text, max_tokens = config.MAX_TOKENS):
+def split_into_many(text, max_tokens=config.MAX_TOKENS, debug=False):
     """
     Split the text into chunks of a maximum number of tokens.
     """
@@ -83,17 +90,42 @@ def split_into_many(text, max_tokens = config.MAX_TOKENS):
         chunk.append(sentence)
         tokens_so_far += token + 1
 
+    if debug:
+        # Ensure the logs directory exists
+        if not os.path.exists('logs'):
+            os.makedirs('logs')
+        # Summaries will be written to a log file
+        with open('logs/split.log', 'a') as file:
+            current_datetime = datetime.now()
+            file.write(f"{current_datetime} ------------------------------------------\n")  
+            file.write(f"{text}\n\n")    
+            file.write("--SENTENCES--\n") 
+            for sentence in sentences:
+                file.write(f"{sentence}\n")
+            file.write("--CHUNKS--\n")
+            for chunk in chunks:
+                file.write(f"{chunk}\n")
+
     return chunks
 
-def delayed_embedding(x, engine='text-embedding-ada-002', delay_in_seconds: float = 1):
-    """
-    Pace requests in order to avoid reaching the rate limit:
-    https://platform.openai.com/docs/guides/rate-limits/overview
-    """
-    # Sleep for the delay
-    time.sleep(delay_in_seconds)
-    # Return embedding 
-    return openai.Embedding.create(input=x, engine='text-embedding-ada-002')['data'][0]['embedding']
+# def delayed_embedding(x, engine='text-embedding-ada-002', delay_in_seconds: float = 1):
+#     """
+#     Pace requests in order to avoid reaching the rate limit:
+#     https://platform.openai.com/docs/guides/rate-limits/overview
+#     """
+#     # Sleep for the delay
+#     time.sleep(delay_in_seconds)
+#     # Return embedding 
+#     return openai.Embedding.create(input=x, engine='text-embedding-ada-002')['data'][0]['embedding']
+
+@retry(
+    retry=retry_if_exception_type((openai.error.APIError, openai.error.APIConnectionError, openai.error.RateLimitError, openai.error.ServiceUnavailableError, openai.error.Timeout)), 
+    wait=wait_random_exponential(multiplier=1, max=60), 
+    stop=stop_after_attempt(10)
+)
+def embedding_with_backoff(text, engine='text-embedding-ada-002'):
+    return openai.Embedding.create(input=text, engine=engine)['data'][0]['embedding']
+
 
 def create_embeddings():
     """
@@ -153,7 +185,7 @@ def create_embeddings():
         # If the number of tokens is greater than the max number of tokens
         # split the text into chunks
         if row[1]['n_tokens'] > config.MAX_TOKENS:
-            shortened += split_into_many(row[1]['text'])
+            shortened += split_into_many(row[1]['text'], debug=True)
         
         # Otherwise, add the text to the list of shortened texts
         else:
@@ -164,7 +196,7 @@ def create_embeddings():
     #print(df.head()) 
     
     # Create embeddings, using the function delayed_embedding()
-    df['embeddings'] = df.text.apply(delayed_embedding)
+    df['embeddings'] = df.text.apply(embedding_with_backoff)
     df.to_csv('processed/embeddings.csv')
     #print(df.head()) 
 

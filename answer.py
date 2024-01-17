@@ -31,10 +31,20 @@ SOFTWARE.
 """
 import pandas as pd
 import numpy as np
+import os
+import time
+from datetime import datetime
 import openai
 from openai.embeddings_utils import distances_from_embeddings
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_random_exponential,
+    retry_if_exception_type
+)  # for exponential backoff
 import embed
 import config # set openai.api_key
+from textutils import clean_text
 
 # Turn the embeddings into a NumPy array, which will provide more flexibility
 df=pd.read_csv('processed/embeddings.csv', index_col=0)
@@ -141,8 +151,195 @@ def answer_question(df, model="gpt-3.5-turbo", question="Esiste una caverna chia
         print(e)
         return ""
 
+def summarize_text(text, model="gpt-3.5-turbo", max_tokens=1000, debug=False):
+    system_msg = (
+                  'Scrivi un conciso riassunto del testo riportato qui sotto. '
+                  'Non parlare in prima persona. '
+                )
+    
+    cleansed_text = clean_text(text)
+    chunks = embed.split_into_many(cleansed_text, 1000)
+    
+    summaries = []
+    num_chunks = len(chunks)
+
+    for index, chunk in enumerate(chunks):
+        if debug:
+            # Ottieni l'ora corrente
+            current_time = datetime.now().strftime("%H:%M:%S")
+            print(f"**Text #{str(index+1)} of {num_chunks} ({current_time})")
+            print("-------------")
+            print(chunk[:160] + "...\n\n")
+        try:
+            # Make a request to OpenAI API with the context and question
+            response = chat_completion_with_backoff(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": chunk},
+                ],
+                max_tokens=max_tokens,
+            )
+
+            # Extract the answer from the API response
+            summary = response["choices"][0]["message"]["content"].strip()
+
+            # (Optional): Debug prints for response details
+            if debug:
+                print("Prompt tokens: " + str(response["usage"]["prompt_tokens"]))
+                print("Completion tokens: " + str(response["usage"]["completion_tokens"]))
+                print("Total tokens: " + str(response["usage"]["total_tokens"]))
+                print(f"**Summary #{str(index+1)} of {num_chunks}")
+                print("-------------")
+                print(summary + "\n\n")
+
+            summaries.append(summary)       
+
+        except Exception as e:       
+            # Get the full exception class name
+            exception_fullname = type(e).__module__ + "." + type(e).__name__
+            # Get the error message
+            error_message = str(e)
+            # Combine them
+            full_error = f"{exception_fullname}: {error_message}"
+            # Handle exceptions and return error message
+            return {"success": False, "error": full_error}
+
+    summarized_text = "\n".join(summaries)
+
+    if debug:
+        # Ensure the logs directory exists
+        if not os.path.exists('logs'):
+            os.makedirs('logs')
+        # Summaries will be written to a log file
+        with open('logs/summary.log', 'a') as file:
+            current_datetime = datetime.now()
+            file.write(f"{current_datetime} ------------------------------------------\n")  
+            file.write(f"{summarized_text}\n\n")
+
+    if len(summarized_text.split()) > 1000:
+        # Se il riassunto ha ancora un numero di parole superiore alla soglia, chiamare nuovamente la funzione
+        return summarize_text(summarized_text, model, max_tokens, debug)
+    else:
+        # Altrimenti, restituisci le sintesi
+        return {"success": True, "summaries": summaries}
+
+
+
+
+
+def summarize(df, model="gpt-3.5-turbo", max_tokens=1000, debug=False):
+    # Define system message instructing the model how to behave
+    system_msg = ('Fai un breve riassunto del testo riportato qui sotto. Non parlare in prima persona. Per esempio, scrivi: '
+                '"Gli autori dello studio potrebbero non essere riusciti a esplorare tutte le zone con fenomeni carsici", '
+                'invece di: "Potrebbe esserci il rischio che non abbiamo esplorato tutte le zone con fenomeni carsici". '
+                'Limitati a spiegare quello che si dice nel testo, '
+                'evitando formule del tipo "nel testo si dice" oppure "questo testo parla". '
+                'Per esempio, scrivi: "Nelle montagne tra la Stura di Cuneo e la Maira sono presenti '
+                'fenomeni carsici (cioè legati alla formazione di grotte e cavità)", invece di: '
+                '"Questo testo parla dei fenomeni carsici (cioè legati alla formazione di grotte e cavità) '
+                'presenti nelle montagne tra la Stura di Cuneo e la Maira." '
+                'Usa un linguaggio adatto a un ragazzino di 14 anni.')
+    summaries = []
+
+    # Numero di righe del dataframe
+    num_rows = len(df)
+    # Loop in every text chunk found in the dataframe
+    for index, row in df.iterrows():
+        longtext = row["text"]
+        if debug:
+                # Ottieni l'ora corrente
+                current_time = datetime.now().strftime("%H:%M:%S")
+                print(f"**Text #{str(index+1)} of {num_rows} ({current_time})")
+                print("-------------")
+                print(longtext[:160] + "...\n\n")
+        try:
+            # Make a request to OpenAI API with the context and question
+            response = chat_completion_with_backoff(
+                model=model,
+                messages=[
+                    {"role": "system", "content": system_msg},
+                    {"role": "user", "content": longtext},
+                ],
+                max_tokens=max_tokens,
+            )
+
+            # Extract the answer from the API response
+            summary = response["choices"][0]["message"]["content"].strip()
+
+            # (Optional): Debug prints for response details
+            if debug:
+                print("Prompt tokens: " + str(response["usage"]["prompt_tokens"]))
+                print("Completion tokens: " + str(response["usage"]["completion_tokens"]))
+                print("Total tokens: " + str(response["usage"]["total_tokens"]))
+                print(f"**Summary #{str(index+1)} of {num_rows}")
+                print("-------------")
+                print(summary + "\n\n")
+
+            summaries.append(summary)
+
+        except Exception as e:       
+            # Get the full exception class name
+            exception_fullname = type(e).__module__ + "." + type(e).__name__
+            # Get the error message
+            error_message = str(e)
+            # Combine them
+            full_error = f"{exception_fullname}: {error_message}"
+            # Handle exceptions and return error message
+            return {"success": False, "error": full_error}
+        
+    # Return the summaries list with success status
+    return {"success": True, "summaries": summaries}    
+
+
+@retry(
+    retry=retry_if_exception_type((openai.error.APIError, openai.error.APIConnectionError, openai.error.RateLimitError, openai.error.ServiceUnavailableError, openai.error.Timeout)), 
+    wait=wait_random_exponential(multiplier=1, max=60), 
+    stop=stop_after_attempt(10)
+)
+def chat_completion_with_backoff(**kwargs):
+    return openai.ChatCompletion.create(**kwargs)
+
+
+
 if __name__ == "__main__":
-    question="Che caratteristiche hanno le caverne che si aprono nella parete del Seguret?"
-    print(question)
-    answer, context_texts_with_dists = answer_question(df, question=question)
-    print(answer)
+    # question="Che caratteristiche hanno le caverne che si aprono nella parete del Seguret?"
+    # print(question)
+    # answer, context_texts_with_dists = answer_question(df, question=question)
+    # print(answer)
+
+    # try:
+    #     result = summarize(df=df, debug=True)
+    #     if result["success"]:
+    #         # Ensure the text directory exists
+    #         if not os.path.exists('processed'):
+    #             os.makedirs('processed')
+        
+    #         # Write summaries to a file
+    #         with open('processed/summary.txt', 'w') as file:
+    #             for summary in result["summaries"]:
+    #                 file.write(summary + "\n")
+    #     else:
+    #         print(f"Errore: {result['error']}")
+        
+    # except Exception as e:
+    #     # Return an error response
+    #     print(f"Exception: {type(e).__module__}.{type(e).__name__}: {str(e)}")
+
+
+    try:
+        with open('text/fenomeno_carsico.txt', 'r') as file:
+            text = file.read()
+
+        result = summarize_text(text, debug=True)
+        if result["success"]:
+            # Write summaries to a file
+            with open('processed/summary_recursive.txt', 'w') as file:
+                for summary in result["summaries"]:
+                    file.write(summary + "\n")
+        else:
+            print(f"Errore: {result['error']}")
+        
+    except Exception as e:
+        # Return an error response
+        print(f"Exception: {type(e).__module__}.{type(e).__name__}: {str(e)}")

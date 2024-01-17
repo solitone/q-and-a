@@ -17,7 +17,7 @@ def clean_text(text):
     text = text.replace('\n', ' ')
     
     # Ensure that every full stop is followed by a blank
-    text = text.replace('.', '. ')
+    #text = text.replace('.', '. ')
 
     # Replace multiple spaces with a single space
     text = re.sub(r' +', ' ', text)
@@ -26,7 +26,8 @@ def clean_text(text):
 
 def split_into_sentences(text):
     # Carica il modello di lingua. 'it_core_news_sm' è per l'italiano.
-    nlp = spacy.load('it_core_news_sm')
+    # Carica il modello di lingua. 'en_core_web_sm' è per l'inglese.
+    nlp = spacy.load('en_core_web_sm')
 
     # Processa il testo con spaCy
     doc = nlp(text)
